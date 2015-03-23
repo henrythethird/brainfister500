@@ -1,4 +1,5 @@
 import Data.Word
+import Data.Char
 
 data State = State
 	{ program 	:: [Comm]
@@ -36,21 +37,23 @@ setValAt l i v = let (x,_:xs) = splitAt i l in x ++ (v:xs)
 rightSearch :: [Comm] -> Int -> Int -> Int
 rightSearch _ index 0 = index
 rightSearch comm index bc
-	| com == Loop	= rightSearch (tail comm) (index + 1) (bc + 1)
-	| com == Pool	= rightSearch (tail comm) (index + 1) (bc - 1)
-	| otherwise	= rightSearch (tail comm) (index + 1) bc
+	| com == Loop	= rs (bc + 1)
+	| com == Pool	= rs (bc - 1)
+	| otherwise	= rs bc
 	where
 		com = head comm
+		rs = rightSearch (tail comm) (index + 1)
 
 
 leftSearch :: [Comm] -> Int -> Int -> Int
 leftSearch _ index 0 = index - 1
 leftSearch comm index bc
-	| com == Loop	= leftSearch (init comm) (index - 1) (bc - 1)
-	| com == Pool	= leftSearch (init comm) (index - 1) (bc + 1)
-	| otherwise	= leftSearch (init comm) (index - 1) bc
+	| com == Loop	= ls (bc - 1)
+	| com == Pool	= ls (bc + 1)
+	| otherwise	= ls bc
 	where
 		com = last comm
+		ls = leftSearch (init comm) (index - 1)
 
 
 head' :: (Num a) => [a] -> a
@@ -61,16 +64,21 @@ head' a = head a
 exec :: State -> State
 exec s = case progAt of 
 	Print	-> s { out = memAt : out s }
-	Read	-> s { memory = setValAt (memory s) (memcnt s) (head' $ stdin s), stdin = tail $ stdin s }
-	Incr 	-> s { memory = setValAt (memory s) (memcnt s) (memAt + 1)  }
-	Decr 	-> s { memory = setValAt (memory s) (memcnt s) (memAt - 1)  }
-	LShift 	-> s { memcnt = memcnt s - 1 }
-	RShift 	-> s { memcnt = memcnt s + 1 }
-	Loop	-> s { pcounter = if memAt == 0 then rightSearch (tail (snd $ splitAt (pcounter s) (program s))) (pcounter s) 1 else pcounter s }
-	Pool	-> s { pcounter = leftSearch (fst $ splitAt (pcounter s) (program s)) (pcounter s) 1 }
+	Read	-> s { memory = sVal (head' $ sin), stdin = tail $ sin }
+	Incr 	-> s { memory = sVal (memAt + 1)  }
+	Decr 	-> s { memory = sVal (memAt - 1)  }
+	LShift 	-> s { memcnt = mc - 1 }
+	RShift 	-> s { memcnt = mc + 1 }
+	Loop	-> s { pcounter = if memAt == 0 then rightSearch (tail (snd $ splitAt pc p)) pc 1 else pc }
+	Pool	-> s { pcounter = leftSearch (fst $ splitAt pc p) pc 1 }
 	where
 		progAt = program s !! (pcounter s)
 		memAt = memory s !! (memcnt s)
+		sVal = setValAt (memory s) (memcnt s)
+		pc = pcounter s
+		mc = memcnt s
+		p = program s
+		sin = stdin s
 
 
 next :: State -> State
@@ -92,14 +100,28 @@ eval s = case state of
 	where
 		state = eval' s
 
-main = eval State { program	= prog
-		  , pcounter	= 0
-		  , memory	= mem
-		  , memcnt	= 0
-		  , out		= []
-		  , stdin	= input
-		  } 
+
+splitAtChar' :: String -> Char -> Int -> Maybe Int
+splitAtChar' str delim ind
+	| str == [] 		= Nothing
+	| head str == delim 	= Just $ ind + 1
+	| otherwise		= splitAtChar' (tail str) delim (ind + 1)
+
+
+splitAtChar :: String -> Char -> (String, String)
+splitAtChar str delim = case splitAtChar' str delim 0 of
+	Just a	-> splitAt a str
+	Nothing	-> (str,"")
+
+
+main = do	prog <- getContents
+		let (prog2, input) = splitAtChar prog '!'
+		eval State { program	= preFilter prog2
+			   , pcounter	= 0
+			   , memory	= mem
+			   , memcnt	= 0
+			   , out	= []
+			   , stdin	= map (\c -> toEnum (fromEnum c)::Word8) input
+			   } 
 	where
 		mem = take 300 $ repeat 0
-		prog = preFilter "+++[>+++++<-]>."
-		input = [2..5]
