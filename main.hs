@@ -11,7 +11,15 @@ data State = State
 	} deriving (Show)
 
 
-data Comm = Print | Read | RShift | LShift | Incr | Decr | Loop | Pool deriving (Show, Eq)
+data Comm = Print 
+	  | Read 
+	  | RShift
+	  | LShift
+	  | Incr
+	  | Decr
+	  | Loop
+	  | Pool
+	deriving (Show, Eq)
 
 
 readComm :: Char -> Comm
@@ -33,7 +41,10 @@ preFilter s = [readComm x | x <- filter (\a -> elem a ".,+-[]<>") s]
 setValAt :: [a] -> Int -> a -> [a]
 setValAt l i v = let (x,_:xs) = splitAt i l in x ++ (v:xs)
 
-
+{-|
+ - somewhat redundant left and right search functions scan the program for
+ - opening/closing brackets to the left/right
+ -}
 rightSearch :: [Comm] -> Int -> Int -> Int
 rightSearch _ index 0 = index
 rightSearch comm index bc
